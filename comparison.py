@@ -130,10 +130,10 @@ def subspace_reconstruction_error(data, eigenvectors):
 def mev(u, truth):
     k = min(truth.shape[1], u.shape[1])  # number of eigenvectors in subspace
     m = np.dot(u.T, truth)
-    sum = 0
+    total = 0
     for i in range(k):
-        sum = sum + np.linalg.norm(m[:, i], 2)
-    mev = sum / k
+        total = total + np.linalg.norm(m[:, i], 2)
+    mev = total / k
     return mev
 
 # def angle360(v1, v2):
