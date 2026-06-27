@@ -1,10 +1,11 @@
 import numpy as np
 import scipy.linalg as la
 import math as math
-import python.PCA.convenience as cv
 import os.path as path
+import convenience as cv
 import scipy.spatial.distance as d
 import pandas as pd
+import os
 
 
 
@@ -37,7 +38,7 @@ def angle(v1, v2):
         return a
 
 
-def compute_angles(canonical, split, reported_angles=20):
+def compute_angles(canonical, split, reported=5):
     """
     Compute the angles of the vectors in a matrix with matching vectors
     in a second matrix.
@@ -51,12 +52,12 @@ def compute_angles(canonical, split, reported_angles=20):
 
     """
     angles = list()
-    for i in range(min(reported_angles, min(canonical.shape[1], split.shape[1]))):
+    for i in range(min(reported, min(canonical.shape[1], split.shape[1]))):
         a = angle(canonical[:, i], split[:, i])
         angles.append(np.around(a, 2))
     return angles
 
-def compute_correlations(canonical, split, reported_angles=20):
+def compute_correlations(canonical, split, reported=5):
     """
         Compute the correlations of the vectors in a matrix with matching vectors
         in a second matrix.
@@ -70,14 +71,14 @@ def compute_correlations(canonical, split, reported_angles=20):
 
         """
     correlations = list()
-    for i in range(min(reported_angles, min(canonical.shape[1], split.shape[1]))):
+    for i in range(min(reported, min(canonical.shape[1], split.shape[1]))):
         c = np.corrcoef(canonical[:, i], split[:, i])
         correlations.append(c[0,1])
     return correlations
 
 
-def compute_save_angles(W0, W1, study_id, filename, outfile, reported_angles=20):
-    angles = compute_angles(W0, W1, reported_angles=reported_angles)
+def compute_save_angles(W0, W1, study_id, filename, outfile, reported=5):
+    angles = compute_angles(W0, W1, reported=reported)
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string(angles, study_id=study_id))
 
@@ -98,9 +99,11 @@ def subspace_reconstruction_error_element_wise(data, eigenvectors):
 
     '''
     res = []
-    for i in range(eigenvectors.shape[1]):
-        proj = np.dot(data, eigenvectors[:, 0:i])
-        rec = np.dot(proj, eigenvectors[:, 0:i].T)
+    for i in range(1, eigenvectors.shape[1]+1):
+        G = eigenvectors[:, :i]
+
+        proj = G.T @ data
+        rec = G @ proj
         res.append(np.linalg.norm(data - rec) / (data.shape[1] * data.shape[0]))
     return res
 
@@ -115,10 +118,13 @@ def subspace_reconstruction_error(data, eigenvectors):
 
     '''
     res = []
-    for i in range(eigenvectors.shape[1]):
-        proj = np.dot(data, eigenvectors[:, 0:i])
-        rec = np.dot(proj, eigenvectors[:, 0:i].T)
-        res.append(np.round(np.linalg.norm(data - rec),2))
+    for i in range(1, eigenvectors.shape[1]+1):
+        G = eigenvectors[:, :i]
+
+        proj = G.T @ data
+        rec = G @ proj
+
+        res.append(np.round(np.linalg.norm(data - rec), 2))
     return res
 
 def mev(u, truth):
@@ -173,8 +179,13 @@ def compute_mses(V1, V2, reported=20):
 
     return res
 
-def compute_save_correlations(canonical, split, study_id, filename, outfile, reported_angles=20):
-    correlations = compute_correlations(canonical, split, reported_angles=reported_angles)
+def compute_save_mses(V1, V2, study_id, filename, outfile, reported=5):
+    mses = compute_mses(V1, V2, reported=reported)
+    with open(path.join(outfile, filename), 'a+') as handle:
+        handle.write(cv.collapse_array_to_string(mses, study_id=study_id))
+
+def compute_save_correlations(canonical, split, study_id, filename, outfile, reported=5):
+    correlations = compute_correlations(canonical, split, reported=reported)
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string(correlations, study_id=study_id))
 
@@ -188,7 +199,81 @@ def compute_save_subspace_reconstruction_error_element_wise(data, eigenvectors, 
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string(errors, study_id=study_id))
 
+
+def compute_save_subspace_reconstruction_error(data, eigenvectors, study_id, filename, outfile):
+    errors = subspace_reconstruction_error(data, eigenvectors)
+    with open(path.join(outfile, filename), 'a+') as handle:
+        handle.write(cv.collapse_array_to_string(errors, study_id=study_id))
+
 def compute_save_mev(u, truth, study_id, filename, outfile):
     value = mev(u, truth)
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string([value], study_id=study_id))
+
+geno = pd.read_csv("out/geno_pca_merged.tsv", sep="\t")
+data = geno.values.astype(np.float64)
+
+G_ref = pd.read_csv("out/G_sample_eigenvectors.tsv", sep="\t")
+eigenvectors_ref = G_ref.iloc[:,:5].values
+
+Qpc1 = np.loadtxt("cache/party1/Qpc.txt", delimiter=",")
+Qpc2 = np.loadtxt("cache/party2/Qpc.txt", delimiter=",")
+Q = np.hstack([Qpc1, Qpc2])
+eigenvectors_sf = Q.T
+
+outfile = "out/metrics"
+os.makedirs(outfile, exist_ok=True)
+
+study_id = "comparison_ref_vs_sf"
+
+compute_save_subspace_reconstruction_error_element_wise(
+    data, eigenvectors_ref, study_id, "rec_err_elem_ref.txt", outfile
+)
+
+compute_save_subspace_reconstruction_error_element_wise(
+    data, eigenvectors_sf, study_id, "rec_err_elem_sf.txt", outfile
+)
+
+compute_save_subspace_reconstruction_error(
+    data, eigenvectors_ref, study_id, "rec_err_ref.txt", outfile
+)
+
+compute_save_subspace_reconstruction_error(
+    data, eigenvectors_sf, study_id, "rec_err_sf.txt", outfile
+)
+
+# Angles
+compute_save_angles(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "angles_ref_vs_sf.txt", outfile
+)
+
+# Correlations
+compute_save_correlations(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "correlations_ref_vs_sf.txt", outfile
+)
+
+# Euclidean distances
+compute_save_euclidean_distance(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "euclidean_ref_vs_sf.txt", outfile
+)
+
+# MSE (column-wise)
+compute_save_mses(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "mses_ref_vs_sf.txt", outfile
+)
+
+# MEV (both directions, since it is asymmetric)
+compute_save_mev(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "mev_ref_vs_sf.txt", outfile
+)
+
+compute_save_mev(
+    eigenvectors_sf, eigenvectors_ref,
+    study_id, "mev_sf_vs_ref.txt", outfile
+)
+
