@@ -7,7 +7,7 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(SCRIPT_DIR, "out")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-N_PCS        = 20       # number of principal components
+N_PCS        = 5       # number of principal components
 N_SNPS       = 10010
 
 def _galinsky_scale(geno):
@@ -39,26 +39,35 @@ def centralized_vertical_pca(data_file):
     k_eff = min(N_PCS, n_samples, N_SNPS)
     u, s, vt = lsa.svds(scaled, k=k_eff)
 
-    u  = np.flip(u,  axis=1)
-    s  = np.flip(s)
-    v  = np.flip(vt.T, axis=1)
+    idx = np.argsort(s)[::-1]
+    s = s[idx]
+    u = u[:, idx]
+    vt = vt[idx]
 
-    pc_labels = [f"PC{i+1}" for i in range(k_eff)]
+    sample_eigenvec = u.T
+    feature_eigenvec = vt
 
-    sample_eigenvec_df = pd.DataFrame(u, columns=pc_labels)
-    sample_eigenvec_df.to_csv(os.path.join(OUT_DIR, "G_sample_eigenvectors.tsv"), sep="\t", index=False)
+    np.savetxt(
+        os.path.join(OUT_DIR, "sample_eigenvectors.tsv"),
+        sample_eigenvec,
+        delimiter="\t"
+    )
 
-    feature_eigenvec_df = pd.DataFrame(v, index=snp_cols, columns=pc_labels)
-    feature_eigenvec_df.index.name = "SNP"
-    feature_eigenvec_df.to_csv(os.path.join(OUT_DIR, "H_SNP_eigenvectors.tsv"), sep="\t", index=False)
+    np.savetxt(
+        os.path.join(OUT_DIR, "SNP_eigenvectors.tsv"),
+        feature_eigenvec,
+        delimiter="\t"
+    )
 
-    ev_df = pd.DataFrame({
-        "PC":                    pc_labels,
-        "singular_value":        s,
-        "eigenvalue_approx":     s ** 2,
-        "variance_explained_percentage": (s ** 2) / (s ** 2).sum() * 100,
-    })
-    ev_df.to_csv(os.path.join(OUT_DIR, "eigenvalues.tsv"), sep="\t", index=False)
+    np.savetxt(
+        os.path.join(OUT_DIR, "eigenvalues.tsv"),
+        np.column_stack([
+            s,
+            s**2,
+            (s**2) / np.sum(s**2) * 100
+        ]),
+        delimiter="\t"
+    )
 
     print(f"{n_samples} individuals x {N_SNPS} SNPs  "
             f"| k={k_eff}  top-20 singular values: {np.round(s[:20], 4).tolist()}")

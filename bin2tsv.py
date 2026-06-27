@@ -40,8 +40,8 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(SCRIPT_DIR, "out")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-bin_party1 = os.path.join(SCRIPT_DIR, "cache", "party1", "geno_pca.bin")
-bin_party2 = os.path.join(SCRIPT_DIR, "cache", "party2", "geno_pca.bin")
+bin_party1 = os.path.join(SCRIPT_DIR, "cache", "party1", "geno_pca1.bin")
+bin_party2 = os.path.join(SCRIPT_DIR, "cache", "party2", "geno_pca2.bin")
 
 geno_party1 = convert_bin_to_tsv(bin_party1, os.path.join(OUT_DIR, "geno_pca_party1.tsv"), NUM_INDIVIDUALS, NUM_SNPS)
 geno_party2 = convert_bin_to_tsv(bin_party2, os.path.join(OUT_DIR, "geno_pca_party2.tsv"), NUM_INDIVIDUALS, NUM_SNPS)

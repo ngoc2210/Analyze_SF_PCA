@@ -52,8 +52,8 @@ def compute_angles(canonical, split, reported=5):
 
     """
     angles = list()
-    for i in range(min(reported, min(canonical.shape[1], split.shape[1]))):
-        a = angle(canonical[:, i], split[:, i])
+    for i in range(min(reported, min(canonical.shape[0], split.shape[0]))):
+        a = angle(canonical[i, :], split[i, :])
         angles.append(np.around(a, 2))
     return angles
 
@@ -71,8 +71,8 @@ def compute_correlations(canonical, split, reported=5):
 
         """
     correlations = list()
-    for i in range(min(reported, min(canonical.shape[1], split.shape[1]))):
-        c = np.corrcoef(canonical[:, i], split[:, i])
+    for i in range(min(reported, min(canonical.shape[0], split.shape[1]))):
+        c = np.corrcoef(canonical[i, :], split[i, :])
         correlations.append(c[0,1])
     return correlations
 
@@ -136,29 +136,53 @@ def mev(u, truth):
     mev = total / k
     return mev
 
-# def angle360(v1, v2):
-#     """
-#     Calculates the angle between to n-dimensional vectors
-#     and returns the result in degree.
-#     Args:
-#         v1: first vector
-#         v2: second vector
+def angle360(v1, v2):
+    """
+    Calculates the angle between to n-dimensional vectors
+    and returns the result in degree.
+    Args:
+        v1: first vector
+        v2: second vector
 
-#     Returns: angle in degree or NaN
+    Returns: angle in degree or NaN
 
-#     """
-#     dp = np.dot(v1, v2)
-#     norm_x = la.norm(v1)
-#     norm_y = la.norm(v2)
-#     co = np.clip(dp / (norm_x * norm_y), -1, 1)
-#     theta = np.arccos(co)
-#     a = math.degrees(theta)
-#     # angle can be Nan
-#     # print(angle)
-#     if math.isnan(a):
-#         return a
-#     # return the canonical angle
-#     return a
+    """
+    dp = np.dot(v1, v2)
+    norm_x = la.norm(v1)
+    norm_y = la.norm(v2)
+    co = np.clip(dp / (norm_x * norm_y), -1, 1)
+    theta = np.arccos(co)
+    a = math.degrees(theta)
+    # angle can be Nan
+    # print(angle)
+    if math.isnan(a):
+        return a
+    # return the canonical angle
+    return a
+
+def compute_angles360(v1, v2, reported=5):
+    """
+    Compute the angles of the vectors in a matrix with matching vectors
+    in a second matrix.
+
+    Args:
+        canonical: The first matrix of eigenvectors
+        split:  The second matrix of eigenvectors
+        reported_angles: Limit for number of angles to compute
+
+    Returns: A vector of angles
+
+    """
+    angles = list()
+    for i in range(min(reported, min(v1.shape[1], v2.shape[1]))):
+        a = angle360(v1[:, i], v2[:, i])
+        angles.append(np.around(a, 2))
+    return angles
+
+def compute_save_angles360(W0, W1, study_id, filename, outfile, reported=5):
+    angles = compute_angles360(W0, W1, reported=reported)
+    with open(path.join(outfile, filename), 'a+') as handle:
+        handle.write(cv.collapse_array_to_string(angles, study_id=study_id))
 
 def mse(v1, v2):
     """
@@ -216,12 +240,17 @@ data = geno.values.astype(np.float64)
 G_ref = pd.read_csv("out/G_sample_eigenvectors.tsv", sep="\t")
 eigenvectors_ref = G_ref.iloc[:,:5].values
 
-Qpc1 = np.loadtxt("cache/party1/Qpc.txt", delimiter=",")
-Qpc2 = np.loadtxt("cache/party2/Qpc.txt", delimiter=",")
+Qpc1 = np.loadtxt("cache/party1/Qpc1.txt", delimiter=",")
+Qpc2 = np.loadtxt("cache/party2/Qpc2.txt", delimiter=",")
 Q = np.hstack([Qpc1, Qpc2])
 eigenvectors_sf = Q.T
 
-outfile = "out/metrics"
+# col_norms = np.linalg.norm(eigenvectors_sf, axis=0, keepdims=True)
+# col_norms = np.where(col_norms < 1e-10, 1.0, col_norms)  # guard against zero norm
+# eigenvectors_sf = eigenvectors_sf / col_norms
+
+
+outfile = "out/metrics/ref_vs_sf"
 os.makedirs(outfile, exist_ok=True)
 
 study_id = "comparison_ref_vs_sf"
@@ -246,6 +275,11 @@ compute_save_subspace_reconstruction_error(
 compute_save_angles(
     eigenvectors_ref, eigenvectors_sf,
     study_id, "angles_ref_vs_sf.txt", outfile
+)
+
+compute_save_angles360(
+    eigenvectors_ref, eigenvectors_sf,
+    study_id, "angles360_ref_vs_sf.txt", outfile
 )
 
 # Correlations
@@ -277,3 +311,60 @@ compute_save_mev(
     study_id, "mev_sf_vs_ref.txt", outfile
 )
 
+
+# eigenvec_rpca = pd.read_csv("out/rpca_sample_eigenvectors.tsv", sep="\t")
+# eigenvectors_sf = Q.T
+# eigenvectors_rpca, _ = np.linalg.qr(G_rand)
+# study_id_rpca= "comparison_ref_vs_rpca"
+# outfile = "out/metrics/ref_vs_rand"
+# os.makedirs(outfile, exist_ok=True)
+
+# compute_save_subspace_reconstruction_error_element_wise(
+#     data, eigenvectors_rand, study_id_rand,
+#     "rec_err_elem_rand.txt", outfile
+# )
+
+# compute_save_subspace_reconstruction_error(
+#     data, eigenvectors_rand, study_id_rand,
+#     "rec_err_rand.txt", outfile
+# )
+
+# # Angles
+# compute_save_angles(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "angles_ref_vs_rand.txt", outfile
+# )
+
+# compute_save_angles360(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "angles360_ref_vs_rand.txt", outfile
+# )
+
+# # Correlations
+# compute_save_correlations(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "correlations_ref_vs_rand.txt", outfile
+# )
+
+# # Euclidean distances
+# compute_save_euclidean_distance(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "euclidean_ref_vs_rand.txt", outfile
+# )
+
+# # MSE (column-wise)
+# compute_save_mses(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "mses_ref_vs_rand.txt", outfile
+# )
+
+# # MEV (both directions)
+# compute_save_mev(
+#     eigenvectors_ref, eigenvectors_rand,
+#     study_id_rand, "mev_ref_vs_rand.txt", outfile
+# )
+
+# compute_save_mev(
+#     eigenvectors_rand, eigenvectors_ref,
+#     study_id_rand, "mev_rand_vs_ref.txt", outfile
+# )
