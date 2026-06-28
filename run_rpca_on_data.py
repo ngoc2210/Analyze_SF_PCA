@@ -10,7 +10,7 @@ import pandas as pd
 import scipy.sparse.linalg as lsa
 import os.path as path
 
-from rpca import randomized_pca
+from cen_rpca import randomized_pca
 
 # ---------------------------------------------------------------------
 # Load data: 2000 samples (rows) x 10010 SNP features (columns), pooled
@@ -28,6 +28,7 @@ ALPHA = 10
 P_ITERS = 20 
 
 rpca_eigenvec, eigvals, A_proj = randomized_pca(A, N_PCS=N_PCS, alpha=ALPHA, p=P_ITERS, seed=0, standardize=True)
+# print(rpca_eigenvec)
 
 np.savetxt(
     path.join("out", "rpca_sample_eigenvectors.tsv"),
@@ -61,6 +62,7 @@ vt = vt[idx]
 print("\n--- ground-truth ---")
 print("Top eigenvalues (explained variance):", s**2)
 print("sample PCs shape:", vt.shape)
+print(vt)
 
 
 print("\n--- Comparison with sklearn PCA (ground truth) ---")

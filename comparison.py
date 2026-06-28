@@ -52,8 +52,8 @@ def compute_angles(canonical, split, reported=5):
 
     """
     angles = list()
-    for i in range(min(reported, min(canonical.shape[0], split.shape[0]))):
-        a = angle(canonical[i, :], split[i, :])
+    for i in range(reported):
+        a = angle(canonical[i,:], split[i, :])
         angles.append(np.around(a, 2))
     return angles
 
@@ -71,9 +71,9 @@ def compute_correlations(canonical, split, reported=5):
 
         """
     correlations = list()
-    for i in range(min(reported, min(canonical.shape[0], split.shape[1]))):
+    for i in range(reported):
         c = np.corrcoef(canonical[i, :], split[i, :])
-        correlations.append(c[0,1])
+        correlations.append(abs(c[0,1]))
     return correlations
 
 
@@ -99,36 +99,18 @@ def subspace_reconstruction_error_element_wise(data, eigenvectors):
 
     '''
     res = []
-    for i in range(1, eigenvectors.shape[1]+1):
-        G = eigenvectors[:, :i]
+    # print(f"shape eigenvectors is {eigenvectors.shape}")
+    # print(f"shape data is {data.shape}")
+    for i in range(1, eigenvectors.shape[0]+1):
+        G = eigenvectors[:i, :]
 
-        proj = G.T @ data
-        rec = G @ proj
+        proj = data @ G.T
+        rec = proj @ G
         res.append(np.linalg.norm(data - rec) / (data.shape[1] * data.shape[0]))
     return res
 
-def subspace_reconstruction_error(data, eigenvectors):
-    '''
-    returns the average elementwise subspace reconstruction error
-    Args:
-        data:
-        eigenvectors:
-
-    Returns:
-
-    '''
-    res = []
-    for i in range(1, eigenvectors.shape[1]+1):
-        G = eigenvectors[:, :i]
-
-        proj = G.T @ data
-        rec = G @ proj
-
-        res.append(np.round(np.linalg.norm(data - rec), 2))
-    return res
-
 def mev(u, truth):
-    k = min(truth.shape[1], u.shape[1])  # number of eigenvectors in subspace
+    k = min(truth.shape[0], u.shape[0])  # number of eigenvectors in subspace
     m = np.dot(u.T, truth)
     total = 0
     for i in range(k):
@@ -174,8 +156,8 @@ def compute_angles360(v1, v2, reported=5):
 
     """
     angles = list()
-    for i in range(min(reported, min(v1.shape[1], v2.shape[1]))):
-        a = angle360(v1[:, i], v2[:, i])
+    for i in range(min(reported, min(v1.shape[0], v2.shape[0]))):
+        a = angle360(v1[i, :], v2[i, :])
         angles.append(np.around(a, 2))
     return angles
 
@@ -191,15 +173,15 @@ def mse(v1, v2):
     diff = v1 - v2
     return np.mean(diff ** 2)
 
-def compute_mses(V1, V2, reported=20):
+def compute_mses(V1, V2, reported=5):
     """
     Computes MSE for matching column vectors in two matrices
     """
     res = []
-    k = min(reported, min(V1.shape[1], V2.shape[1]))
+    k = min(reported, min(V1.shape[0], V2.shape[0]))
 
     for i in range(k):
-        res.append(mse(V1[:, i], V2[:, i]))
+        res.append(mse(V1[i, :], V2[i, :]))
 
     return res
 
@@ -223,148 +205,47 @@ def compute_save_subspace_reconstruction_error_element_wise(data, eigenvectors, 
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string(errors, study_id=study_id))
 
-
-def compute_save_subspace_reconstruction_error(data, eigenvectors, study_id, filename, outfile):
-    errors = subspace_reconstruction_error(data, eigenvectors)
-    with open(path.join(outfile, filename), 'a+') as handle:
-        handle.write(cv.collapse_array_to_string(errors, study_id=study_id))
-
 def compute_save_mev(u, truth, study_id, filename, outfile):
     value = mev(u, truth)
     with open(path.join(outfile, filename), 'a+') as handle:
         handle.write(cv.collapse_array_to_string([value], study_id=study_id))
 
+def compute_all_metrics(data, eigenvectors_ref, eigenvectors_cmp, study_id, outfile):
+    os.makedirs(outfile, exist_ok=True)
+    compute_save_subspace_reconstruction_error_element_wise(data, eigenvectors_cmp, study_id, "rec_err_elem.txt", outfile)
+    compute_save_angles(eigenvectors_ref, eigenvectors_cmp, study_id, "angles.txt", outfile)
+    compute_save_angles360(eigenvectors_ref, eigenvectors_cmp, study_id, "angles360.txt", outfile)
+    compute_save_correlations(eigenvectors_ref, eigenvectors_cmp, study_id, "correlations.txt", outfile)
+    compute_save_euclidean_distance(eigenvectors_ref, eigenvectors_cmp, study_id, "euclidean.txt", outfile)
+    compute_save_mses(eigenvectors_ref, eigenvectors_cmp, study_id, "mses.txt", outfile)
+    compute_save_mev(eigenvectors_ref, eigenvectors_cmp, study_id, "mev.txt", outfile)
+    compute_save_mev(eigenvectors_cmp, eigenvectors_ref, study_id, "mev_inverse.txt", outfile)
+
 geno = pd.read_csv("out/geno_pca_merged.tsv", sep="\t")
 data = geno.values.astype(np.float64)
+data = data.T
+print(f"data shape {data.shape}")
 
-G_ref = pd.read_csv("out/G_sample_eigenvectors.tsv", sep="\t")
-eigenvectors_ref = G_ref.iloc[:,:5].values
+eigenvectors_ref = np.loadtxt("out/sample_eigenvectors.tsv", delimiter="\t")
+eigenvectors_ref = eigenvectors_ref[:5]
+print(f"eigenvectors_ref shape {eigenvectors_ref.shape}")
 
 Qpc1 = np.loadtxt("cache/party1/Qpc1.txt", delimiter=",")
 Qpc2 = np.loadtxt("cache/party2/Qpc2.txt", delimiter=",")
-Q = np.hstack([Qpc1, Qpc2])
-eigenvectors_sf = Q.T
+eigenvectors_sf = np.hstack([Qpc1, Qpc2])
+print(f"eigenvectors_sf shape {eigenvectors_sf.shape}")
 
-# col_norms = np.linalg.norm(eigenvectors_sf, axis=0, keepdims=True)
-# col_norms = np.where(col_norms < 1e-10, 1.0, col_norms)  # guard against zero norm
-# eigenvectors_sf = eigenvectors_sf / col_norms
+col_norms = np.linalg.norm(eigenvectors_sf, axis=0, keepdims=True)
+col_norms = np.where(col_norms < 1e-10, 1.0, col_norms)  # guard against zero norm
+eigenvectors_sf = eigenvectors_sf / col_norms
 
+compute_all_metrics(data, eigenvectors_ref, eigenvectors_sf, study_id="comparison_ref_vs_sf", outfile="out/metrics/ref_vs_sf")
 
-outfile = "out/metrics/ref_vs_sf"
-os.makedirs(outfile, exist_ok=True)
+eigenvectors_rpca = np.loadtxt("out/rpca_sample_eigenvectors.tsv", delimiter="\t")
+print(f"eigenvectors_rpca shape {eigenvectors_rpca.shape}")
+study_id_rpca= "comparison_ref_vs_rpca"
+outfile = "out/metrics/ref_vs_rpca"
 
-study_id = "comparison_ref_vs_sf"
+compute_all_metrics(data, eigenvectors_ref, eigenvectors_rpca, study_id="comparison_ref_vs_rpca", outfile="out/metrics/ref_vs_rpca")
 
-compute_save_subspace_reconstruction_error_element_wise(
-    data, eigenvectors_ref, study_id, "rec_err_elem_ref.txt", outfile
-)
-
-compute_save_subspace_reconstruction_error_element_wise(
-    data, eigenvectors_sf, study_id, "rec_err_elem_sf.txt", outfile
-)
-
-compute_save_subspace_reconstruction_error(
-    data, eigenvectors_ref, study_id, "rec_err_ref.txt", outfile
-)
-
-compute_save_subspace_reconstruction_error(
-    data, eigenvectors_sf, study_id, "rec_err_sf.txt", outfile
-)
-
-# Angles
-compute_save_angles(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "angles_ref_vs_sf.txt", outfile
-)
-
-compute_save_angles360(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "angles360_ref_vs_sf.txt", outfile
-)
-
-# Correlations
-compute_save_correlations(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "correlations_ref_vs_sf.txt", outfile
-)
-
-# Euclidean distances
-compute_save_euclidean_distance(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "euclidean_ref_vs_sf.txt", outfile
-)
-
-# MSE (column-wise)
-compute_save_mses(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "mses_ref_vs_sf.txt", outfile
-)
-
-# MEV (both directions, since it is asymmetric)
-compute_save_mev(
-    eigenvectors_ref, eigenvectors_sf,
-    study_id, "mev_ref_vs_sf.txt", outfile
-)
-
-compute_save_mev(
-    eigenvectors_sf, eigenvectors_ref,
-    study_id, "mev_sf_vs_ref.txt", outfile
-)
-
-
-# eigenvec_rpca = pd.read_csv("out/rpca_sample_eigenvectors.tsv", sep="\t")
-# eigenvectors_sf = Q.T
-# eigenvectors_rpca, _ = np.linalg.qr(G_rand)
-# study_id_rpca= "comparison_ref_vs_rpca"
-# outfile = "out/metrics/ref_vs_rand"
-# os.makedirs(outfile, exist_ok=True)
-
-# compute_save_subspace_reconstruction_error_element_wise(
-#     data, eigenvectors_rand, study_id_rand,
-#     "rec_err_elem_rand.txt", outfile
-# )
-
-# compute_save_subspace_reconstruction_error(
-#     data, eigenvectors_rand, study_id_rand,
-#     "rec_err_rand.txt", outfile
-# )
-
-# # Angles
-# compute_save_angles(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "angles_ref_vs_rand.txt", outfile
-# )
-
-# compute_save_angles360(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "angles360_ref_vs_rand.txt", outfile
-# )
-
-# # Correlations
-# compute_save_correlations(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "correlations_ref_vs_rand.txt", outfile
-# )
-
-# # Euclidean distances
-# compute_save_euclidean_distance(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "euclidean_ref_vs_rand.txt", outfile
-# )
-
-# # MSE (column-wise)
-# compute_save_mses(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "mses_ref_vs_rand.txt", outfile
-# )
-
-# # MEV (both directions)
-# compute_save_mev(
-#     eigenvectors_ref, eigenvectors_rand,
-#     study_id_rand, "mev_ref_vs_rand.txt", outfile
-# )
-
-# compute_save_mev(
-#     eigenvectors_rand, eigenvectors_ref,
-#     study_id_rand, "mev_rand_vs_ref.txt", outfile
-# )
+compute_all_metrics(data, eigenvectors_rpca, eigenvectors_sf, study_id="comparison_rpca_vs_sf", outfile="out/metrics/rpca_vs_sf")
