@@ -1,2 +1,2 @@
 rm -rf out/metrics
-python comparison.py
+python sf_pca_no_crypto.py
