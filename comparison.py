@@ -182,56 +182,8 @@ def compute_all_metrics(ref, cmp, study_id, outfile):
     compute_save_euclidean_distance(ref, cmp, study_id, "euclidean.txt", outfile)
     compute_save_mses(ref, cmp, study_id, "mses.txt", outfile)
 
-# ### reference A_proj on sample eigenvec
-# A_proj_sample_ref = np.loadtxt("out/A_proj_on_sample_pcs_gt.tsv", delimiter="\t")
-# A_proj_sample_ref = A_proj_sample_ref[:, :5]
-# print(f"A_proj_sample_gt shape {A_proj_sample_ref.shape}")
-# ### reference A_proj on feature eigenvec
-# A_proj_feature_ref = np.loadtxt("out/A_proj_on_feature_pcs_gt.tsv", delimiter="\t")
-# A_proj_feature_ref = A_proj_feature_ref[:, :5]
-# print(f"A_proj_feature_gt shape {A_proj_feature_ref.shape}")
 
-# ### reference sample eigenvec
-# sample_eigenvec_ref = np.loadtxt("out/sample_eigenvectors.tsv", delimiter="\t")
-# sample_eigenvec_ref = sample_eigenvec_ref[:5].T
-# print(f"sample_eigenvec_gt shape {sample_eigenvec_ref.shape}")
-# ### reference feature eigenvec
-# feature_eigenvec_ref = np.loadtxt("out/feature_eigenvectors.tsv", delimiter="\t")
-# feature_eigenvec_ref = feature_eigenvec_ref[:5].T
-# print(f"feature_eigenvec_gt shape {feature_eigenvec_ref.shape}")
-
-# ### rpca A_proj on sample eigenvec
-# A_proj_sample_rpca = np.loadtxt("out/A_proj_on_sample_pcs_rpca.tsv", delimiter="\t")
-# print(f"A_proj_sample_rpca shape {A_proj_sample_rpca.shape}")
-# ### rpca A_proj on feature eigenvec
-# A_proj_feature_rpca = np.loadtxt("out/A_proj_on_feature_pcs_rpca.tsv", delimiter="\t")
-# print(f"A_proj_feature_rpca shape {A_proj_feature_rpca.shape}")
-
-# ### rpca sample eigenvec
-# sample_eigenvec_rpca = np.loadtxt("out/rpca_sample_eigenvectors.tsv", delimiter="\t")
-# sample_eigenvec_rpca = sample_eigenvec_rpca.T
-# print(f"sample_eigenvec_rpca shape {sample_eigenvec_rpca.shape}")
-# ### rpca feature eigenvec
-# feature_eigenvec_rpca = np.loadtxt("out/rpca_feature_eigenvectors.tsv", delimiter="\t")
-# feature_eigenvec_rpca = feature_eigenvec_rpca.T
-# print(f"feature_eigenvec_rpca shape {feature_eigenvec_rpca.shape}")
-
-# compute_all_metrics(A_proj_sample_ref, A_proj_sample_rpca, study_id="comparison_A_proj_sample_ref_vs_rpca", outfile="out/metrics/A_proj_sample_ref_vs_rpca")
-# compute_all_metrics(A_proj_feature_ref, A_proj_feature_rpca, study_id="comparison_A_proj_feature_ref_vs_rpca", outfile="out/metrics/A_proj_feature_ref_vs_rpca")
-
-# compute_all_metrics(sample_eigenvec_ref, sample_eigenvec_rpca, study_id="comparison_sample_eigenvec_ref_vs_rpca", outfile="out/metrics/sample_eigenvec_ref_vs_rpca")
-# compute_all_metrics(feature_eigenvec_ref, feature_eigenvec_rpca, study_id="comparison_feature_eigenvec_ref_vs_rpca", outfile="out/metrics/feature_eigenvec_ref_vs_rpca")
-
-### Qpc with and without MHE, MPC
-qpc1_crypto_sf = np.loadtxt("out/Qpc1.txt", delimiter=",")
-qpc1_no_crypto_sf = np.loadtxt("cache/party1/Qpc1.txt", delimiter=",")
-qpc2_crypto_sf = np.loadtxt("out/Qpc2.txt", delimiter=",")
-qpc2_no_crypto_sf = np.loadtxt("cache/party2/Qpc2.txt", delimiter=",")
-compute_all_metrics(qpc1_no_crypto_sf.T, qpc1_crypto_sf.T, study_id="comparison_qpc1_crypto_vs_no_crypto", outfile="out/metrics/qpc1_crypto_vs_no_crypto")
-compute_all_metrics(qpc2_no_crypto_sf.T, qpc2_crypto_sf.T, study_id="comparison_qpc2_crypto_vs_no_crypto", outfile="out/metrics/qpc2_crypto_vs_no_crypto")
-
-
-### mean and standard deviation
+### mean and standard deviation comparision
 mean_sf = np.loadtxt("cache/party1/Xmean.txt", delimiter=",")[:10010]
 mean = np.loadtxt("out/Xmean.tsv", delimiter="\t")
 stdinv_sf = np.loadtxt("cache/party1/XStdInv.txt", delimiter=",")[:10010]
