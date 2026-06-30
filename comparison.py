@@ -204,8 +204,8 @@ def compare_mean_stdinv(mean_a, mean_b, stdinv_a, stdinv_b):
         "stdinv": compute_vector_metrics(stdinv_a, stdinv_b),
     }
 
-results = compare_mean_stdinv(mean, mean_sf, stdinv, stdinv_sf)
+# results = compare_mean_stdinv(mean, mean_sf, stdinv, stdinv_sf)
 
-print(results["mean"])
-print(results["stdinv"])
+# print(results["mean"])
+# print(results["stdinv"])
 

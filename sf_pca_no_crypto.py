@@ -2,11 +2,12 @@ import math
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from scipy.sparse.linalg import svds
 from comparison import compute_all_metrics
 
 # --- Configuration ---
 NPC = 5                                      # fixed
-OVERSAMPLE_VALUES = [15, 18, 21, 24, 27, 30]
+OVERSAMPLE_VALUES = [10, 14, 18, 22, 26, 30]
 POWER_ITER_VALUES = [20, 40, 60, 80, 100]
 
 # --- Load input data (shared across all sweep runs) ---
@@ -138,42 +139,71 @@ def align_signs(ref, cmp):
     return aligned
 
 
-# --- Ground truth (independent of the oversample / power-iter sweep) ---
+# --- Ground truth ---
+def compute_ground_truth(X_std, npc):
+    U, S, Vt = svds(X_std, k=npc)              # ascending singular values
+    order = np.argsort(S)[::-1]
+    U = U[:, order]
+    S = S[order]
+    Vt = Vt[order, :]
+    np.savetxt(f"./out/sample_pcs_gt.tsv", U, delimiter="\t")
+    print("Top singular values:", S)
+    print("sample PCs:", U.shape)
+    return U, S
+
 X_std = (X - mean) * stdinv
 print(f"X_std shape {X_std.shape}")
-pca = PCA(n_components=NPC, svd_solver="full")
-scores = pca.fit_transform(X_std)
-np.savetxt("./out/A_proj_on_sample_pcs_gt.tsv", scores, delimiter="\t")
+eigenvec_gt, singular_val_gt = compute_ground_truth(X_std, NPC)
 
-print("\n--- ground-truth ---")
-print("Top eigenvalues (explained variance):", pca.explained_variance_)
-print("Projected data on sample PCs:", scores.shape)
-
-Qpc1_gt = scores[:nsample1]
-Qpc2_gt = scores[nsample1:]
+Qpc1_gt = eigenvec_gt[:nsample1]
+Qpc2_gt = eigenvec_gt[nsample1:]
 Qpc1_gt_n = unit_normalize_cols(Qpc1_gt)
 Qpc2_gt_n = unit_normalize_cols(Qpc2_gt)
 
 
-# --- Sweep over NUM_OVERSAMPLE and N_POWER_ITER ---
+#--- Sweep over NUM_OVERSAMPLE and N_POWER_ITER ---
 rng = np.random.default_rng(seed=0)
 
 for num_oversample in OVERSAMPLE_VALUES:
-    for n_power_iter in POWER_ITER_VALUES:
-        kp = NPC + num_oversample
-        print(f"\n=== NPC={NPC}, NUM_OVERSAMPLE={num_oversample} (KP={kp}), "
-              f"N_POWER_ITER={n_power_iter} ===")
+    kp = NPC + num_oversample
+    n_power_iter = 20
+    print(f"\n=== NPC={NPC}, NUM_OVERSAMPLE={num_oversample} (KP={kp}), "
+            f"N_POWER_ITER={20} ===")
 
-        Qpc1, Qpc2 = run_rpca(num_oversample, n_power_iter, rng)
-        print(f"Qpc1 shape: {Qpc1.shape}, Qpc2 shape: {Qpc2.shape}")
+    Qpc1, Qpc2 = run_rpca(num_oversample, n_power_iter, rng)
+    print(f"Qpc1 shape: {Qpc1.shape}, Qpc2 shape: {Qpc2.shape}")
 
-        Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
-        Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
+    # Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
+    # Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
+    Qpc1_n = unit_normalize_cols(Qpc1.T)
+    Qpc2_n = unit_normalize_cols(Qpc2.T)
 
-        study_id_1 = f"qpc1_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
-        study_id_2 = f"qpc2_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
-        outdir_1 = f"out/metrics/qpc1_vs_gt/"
-        outdir_2 = f"out/metrics/qpc2_vs_gt/"
+    study_id_1 = f"qpc1_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
+    study_id_2 = f"qpc2_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
+    outdir_1 = f"out/metrics/qpc1_vs_gt/"
+    outdir_2 = f"out/metrics/qpc2_vs_gt/"
 
-        compute_all_metrics(Qpc1_gt_n, Qpc1_n, study_id=study_id_1, outfile=outdir_1)
-        compute_all_metrics(Qpc2_gt_n, Qpc2_n, study_id=study_id_2, outfile=outdir_2)
+    compute_all_metrics(Qpc1_gt_n, Qpc1_n, study_id=study_id_1, outfile=outdir_1)
+    compute_all_metrics(Qpc2_gt_n, Qpc2_n, study_id=study_id_2, outfile=outdir_2)
+
+for n_power_iter in POWER_ITER_VALUES:
+    kp = CACHED_KP
+    num_oversample = 10
+    print(f"\n=== NPC={NPC}, NUM_OVERSAMPLE={num_oversample} (KP={kp}), "
+            f"N_POWER_ITER={20} ===")
+
+    Qpc1, Qpc2 = run_rpca(num_oversample, n_power_iter, rng)
+    print(f"Qpc1 shape: {Qpc1.shape}, Qpc2 shape: {Qpc2.shape}")
+
+    # Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
+    # Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
+    Qpc1_n = unit_normalize_cols(Qpc1.T)
+    Qpc2_n = unit_normalize_cols(Qpc2.T)
+
+    study_id_1 = f"qpc1_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
+    study_id_2 = f"qpc2_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
+    outdir_1 = f"out/metrics/qpc1_vs_gt/"
+    outdir_2 = f"out/metrics/qpc2_vs_gt/"
+
+    compute_all_metrics(Qpc1_gt_n, Qpc1_n, study_id=study_id_1, outfile=outdir_1)
+    compute_all_metrics(Qpc2_gt_n, Qpc2_n, study_id=study_id_2, outfile=outdir_2)
