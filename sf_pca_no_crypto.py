@@ -142,21 +142,28 @@ def align_signs(ref, cmp):
 # --- Ground truth ---
 def compute_ground_truth(X_std, npc):
     U, S, Vt = svds(X_std, k=npc)              # ascending singular values
+    print(f"U shape {U.shape}")
+    print(f"S shape {S.shape}")
+    print(f"Vt shape {Vt.shape}")
     order = np.argsort(S)[::-1]
     U = U[:, order]
     S = S[order]
     Vt = Vt[order, :]
+    sample_score = U*S
     np.savetxt(f"./out/sample_pcs_gt.tsv", U, delimiter="\t")
+    np.savetxt(f"./out/sample_score_gt.tsv", U*S, delimiter="\t")
     print("Top singular values:", S)
-    print("sample PCs:", U.shape)
-    return U, S
+    return U, U*S
 
 X_std = (X - mean) * stdinv
 print(f"X_std shape {X_std.shape}")
-eigenvec_gt, singular_val_gt = compute_ground_truth(X_std, NPC)
+sample_eigenvec_gt, sample_score_gt = compute_ground_truth(X_std, NPC)
 
-Qpc1_gt = eigenvec_gt[:nsample1]
-Qpc2_gt = eigenvec_gt[nsample1:]
+# Qpc1_gt = sample_eigenvec_gt[:nsample1]
+# Qpc2_gt = sample_eigenvec_gt[nsample1:]
+Qpc1_gt =sample_score_gt[:nsample1]
+Qpc2_gt =sample_score_gt[nsample1:]
+print("compare projection on sample PCs")
 Qpc1_gt_n = unit_normalize_cols(Qpc1_gt)
 Qpc2_gt_n = unit_normalize_cols(Qpc2_gt)
 
@@ -173,10 +180,10 @@ for num_oversample in OVERSAMPLE_VALUES:
     Qpc1, Qpc2 = run_rpca(num_oversample, n_power_iter, rng)
     print(f"Qpc1 shape: {Qpc1.shape}, Qpc2 shape: {Qpc2.shape}")
 
-    # Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
-    # Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
-    Qpc1_n = unit_normalize_cols(Qpc1.T)
-    Qpc2_n = unit_normalize_cols(Qpc2.T)
+    Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
+    Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
+    # Qpc1_n = unit_normalize_cols(Qpc1.T)
+    # Qpc2_n = unit_normalize_cols(Qpc2.T)
 
     study_id_1 = f"qpc1_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
     study_id_2 = f"qpc2_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
@@ -195,10 +202,10 @@ for n_power_iter in POWER_ITER_VALUES:
     Qpc1, Qpc2 = run_rpca(num_oversample, n_power_iter, rng)
     print(f"Qpc1 shape: {Qpc1.shape}, Qpc2 shape: {Qpc2.shape}")
 
-    # Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
-    # Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
-    Qpc1_n = unit_normalize_cols(Qpc1.T)
-    Qpc2_n = unit_normalize_cols(Qpc2.T)
+    Qpc1_n = unit_normalize_cols(align_signs(Qpc1_gt_n, Qpc1.T))
+    Qpc2_n = unit_normalize_cols(align_signs(Qpc2_gt_n, Qpc2.T))
+    # Qpc1_n = unit_normalize_cols(Qpc1.T)
+    # Qpc2_n = unit_normalize_cols(Qpc2.T)
 
     study_id_1 = f"qpc1_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
     study_id_2 = f"qpc2_vs_gt_npc{NPC}_os{num_oversample}_kp{kp}_iter{n_power_iter}"
